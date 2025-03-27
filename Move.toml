@@ -1,0 +1,15 @@
+[package]
+name = "Collaborative-coding-projects-on-Aptos"
+version = "1.0.0"
+authors = []
+
+[addresses]
+MyModule="0x333b038c35027b567e0e63b68e9a3720271c16b2b635fc811510a86253287ba3"  
+[dev-addresses]
+
+[dependencies.AptosFramework]
+git = "https://github.com/aptos-labs/aptos-framework.git"
+rev = "mainnet"
+subdir = "aptos-framework"
+
+[dev-dependencies]
