@@ -1,3 +1,4 @@
+<img width="950" alt="Screenshot 2025-03-27 220252" src="https://github.com/user-attachments/assets/f9c55ef0-f116-4d46-bbb6-a7b7d6e40ad4" />
 # Collaborative Coding Projects on Aptos
 
 ## 1. Title:
