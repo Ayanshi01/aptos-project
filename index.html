@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collaborative Coding Projects on Aptos</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/@petra-plugin/aptos-wallet-adapter@latest/dist/index.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="background-animation"></div>
+    
+    <div class="theme-switch">
+        <input type="checkbox" id="theme-toggle">
+        <label for="theme-toggle" class="theme-label">
+            <span class="theme-icon">🌙</span>
+        </label>
+    </div>
+
+    <header>
+        <nav>
+            <div class="logo animate__animated animate__fadeIn">Aptos Collaborative Coding</div>
+            <div class="nav-links">
+                <a href="#home" class="nav-link">Home</a>
+                <a href="#projects" class="nav-link">Projects</a>
+                <a href="#create" class="nav-link">Create Project</a>
+                <div class="wallet-container">
+                    <button id="connect-wallet" class="connect-btn">
+                        <span class="btn-text">Connect Petra Wallet</span>
+                        <span class="btn-icon">👛</span>
+                    </button>
+                    <div id="wallet-status" class="wallet-status"></div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Wallet Check Modal -->
+    <div id="wallet-modal" class="modal">
+        <div class="modal-content">
+            <h2>Petra Wallet Required</h2>
+            <p>To use this application, you need to install the Petra wallet extension.</p>
+            <div class="modal-buttons">
+                <a href="https://petra.app/" target="_blank" class="modal-btn primary">Install Petra Wallet</a>
+                <button class="modal-btn secondary" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <section id="home" class="hero animate__animated animate__fadeIn">
+            <div class="hero-content">
+                <h1>Collaborative Coding on Aptos</h1>
+                <p>Build, share, and collaborate on blockchain projects with developers worldwide</p>
+                <div class="hero-buttons">
+                    <button class="cta-btn primary" onclick="connectWallet()">Get Started</button>
+                    <button class="cta-btn secondary">Learn More</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="projects" class="projects-section animate__animated animate__fadeIn">
+            <h2>Featured Projects</h2>
+            <div class="projects-grid" id="projects-container">
+                <!-- Projects will be dynamically loaded here -->
+            </div>
+        </section>
+
+        <section id="create" class="create-section animate__animated animate__fadeIn">
+            <h2>Create New Project</h2>
+            <form id="project-form" class="slide-in">
+                <div class="form-group">
+                    <label for="project-name">Project Name</label>
+                    <input type="text" id="project-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="project-description">Description</label>
+                    <textarea id="project-description" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="project-repo">GitHub Repository URL</label>
+                    <input type="url" id="project-repo" required>
+                </div>
+                <button type="submit" class="submit-btn">
+                    <span class="btn-text">Create Project</span>
+                    <span class="btn-icon">🚀</span>
+                </button>
+            </form>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Aptos Collaborative Coding. All rights reserved.</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html> 
