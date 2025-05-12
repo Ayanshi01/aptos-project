@@ -3,14 +3,6 @@ let wallet = null;
 let isWalletConnected = false;
 let userAddress = null;
 
-// AI Image Generation Configuration
-const AI_CONFIG = {
-    STABLE_DIFFUSION_URL: "https://api-inference.huggingface.co/models/runwayml/stable-diffusion-v1-5",
-    API_KEY: "YOUR_HUGGING_FACE_API_KEY", // Replace with your API key
-    MAX_STEPS: 50,
-    GUIDANCE_SCALE: 7.5
-};
-
 // DOM Elements
 const connectWalletBtn = document.getElementById('connect-wallet');
 const projectForm = document.getElementById('project-form');
@@ -63,15 +55,16 @@ themeToggle.addEventListener('change', () => {
     setTheme(theme);
 });
 
-// Sample projects data (in a real app, this would come from a backend)
-const sampleProjects = [
+// Separate existing projects from user-created projects
+const existingProjects = [
     {
         id: 1,
         name: "DeFi Dashboard",
         description: "A comprehensive dashboard for tracking DeFi metrics on Aptos",
         repo: "https://github.com/example/defi-dashboard",
         files: [],
-        image: null
+        image: null,
+        confirmed: true
     },
     {
         id: 2,
@@ -79,9 +72,13 @@ const sampleProjects = [
         description: "A decentralized marketplace for trading NFTs on Aptos",
         repo: "https://github.com/example/nft-marketplace",
         files: [],
-        image: null
+        image: null,
+        confirmed: true
     }
 ];
+
+// User-created projects
+const userProjects = [];
 
 // Enhanced scroll animations
 function handleScrollAnimations() {
@@ -176,7 +173,7 @@ function showWalletStatus(message, type) {
 
 // GitHub file handling
 async function handleGitHubFiles(projectId) {
-    const project = sampleProjects.find(p => p.id === projectId);
+    const project = existingProjects.find(p => p.id === projectId) || userProjects.find(p => p.id === projectId);
     if (!project) {
         showWalletStatus('Project not found', 'error');
         return;
@@ -226,7 +223,7 @@ async function handleGitHubFiles(projectId) {
 
 // Add GitHub file
 function addGitHubFile(projectId) {
-    const project = sampleProjects.find(p => p.id === projectId);
+    const project = existingProjects.find(p => p.id === projectId) || userProjects.find(p => p.id === projectId);
     if (!project) return;
 
     const urlInput = document.getElementById('github-url');
@@ -251,7 +248,7 @@ function addGitHubFile(projectId) {
 
 // Remove file
 function removeFile(projectId, fileUrl) {
-    const project = sampleProjects.find(p => p.id === projectId);
+    const project = existingProjects.find(p => p.id === projectId) || userProjects.find(p => p.id === projectId);
     if (!project) return;
 
     project.files = project.files.filter(file => file.url !== fileUrl);
@@ -311,7 +308,7 @@ async function processImage(file) {
 // Handle project image upload
 async function handleImageUpload(projectId, file) {
     try {
-        const project = sampleProjects.find(p => p.id === projectId);
+        const project = existingProjects.find(p => p.id === projectId) || userProjects.find(p => p.id === projectId);
         if (!project) return;
 
         const processedImageUrl = await processImage(file);
@@ -324,58 +321,49 @@ async function handleImageUpload(projectId, file) {
     }
 }
 
-// Enhanced project form submission
+// Update handleProjectSubmit to add to userProjects
 async function handleProjectSubmit(event) {
     event.preventDefault();
-    
     if (!isWalletConnected) {
         showWalletStatus('Please connect your wallet first', 'error');
         return;
     }
-
     const submitBtn = event.target.querySelector('.submit-btn');
     submitBtn.disabled = true;
     submitBtn.classList.add('submitting');
-
     const projectName = document.getElementById('project-name').value;
     const projectDescription = document.getElementById('project-description').value;
     const projectRepo = document.getElementById('project-repo').value;
     const projectImage = document.getElementById('project-image').files[0];
-
     try {
         // Create new project
         const newProject = {
-            id: sampleProjects.length + 1,
+            id: Date.now(),
             name: projectName,
             description: projectDescription,
             repo: projectRepo,
             files: [],
             image: null,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            confirmed: false
         };
-        
         // Process image if provided
         if (projectImage) {
             await handleImageUpload(newProject.id, projectImage);
         }
-        
-        sampleProjects.push(newProject);
+        userProjects.push(newProject);
         displayProjects();
         projectForm.reset();
-        
-        // Success animation
         submitBtn.innerHTML = `
             <span class="btn-text">Project Created!</span>
             <span class="btn-icon">🎉</span>
         `;
-        
         setTimeout(() => {
             submitBtn.innerHTML = `
                 <span class="btn-text">Create Project</span>
                 <span class="btn-icon">🚀</span>
             `;
         }, 2000);
-        
         showWalletStatus('Project created successfully!', 'success');
     } catch (error) {
         console.error('Failed to create project:', error);
@@ -386,100 +374,149 @@ async function handleProjectSubmit(event) {
     }
 }
 
-// Display projects in the grid with animations
+// Update confirmProjectCreation to move project to existingProjects
+async function confirmProjectCreation(projectId) {
+    if (!isWalletConnected) {
+        showWalletStatus('Please connect your wallet first', 'error');
+        return;
+    }
+    const projectIndex = userProjects.findIndex(p => p.id === projectId);
+    if (projectIndex === -1) {
+        showWalletStatus('Project not found', 'error');
+        return;
+    }
+    const project = userProjects[projectIndex];
+    try {
+        // Example transaction payload (customize as needed)
+        const payload = {
+            type: 'entry_function_payload',
+            function: '0x1::aptos_account::transfer',
+            arguments: [userAddress, 1], // Dummy transaction: send 1 token to self
+            type_arguments: []
+        };
+        const response = await wallet.signAndSubmitTransaction(payload);
+        showWalletStatus('Transaction submitted! Hash: ' + response.hash, 'success');
+        // Mark as confirmed and move to existingProjects
+        project.confirmed = true;
+        existingProjects.push(project);
+        userProjects.splice(projectIndex, 1);
+        displayProjects();
+    } catch (error) {
+        console.error('Transaction error:', error);
+        showWalletStatus('Transaction failed. Please try again.', 'error');
+    }
+}
+
+// Update displayProjects to show two sections
 function displayProjects() {
     projectsContainer.innerHTML = '';
-    
-    // Add AI Image Generation Section
-    const aiSection = document.createElement('div');
-    aiSection.className = 'ai-image-section';
-    aiSection.innerHTML = `
-        <h2>AI Image Generation</h2>
-        <div class="ai-image-card">
-            <div class="ai-image-preview">
-                <img id="ai-preview" src="https://via.placeholder.com/400x300" alt="AI Generated Image">
-            </div>
-            <div class="ai-image-controls">
-                <div class="form-group">
-                    <label for="ai-prompt">Describe your image</label>
-                    <textarea id="ai-prompt" placeholder="Enter a detailed description of the image you want to generate..."></textarea>
+    // Existing Projects Section
+    if (existingProjects.length > 0) {
+        const existingSection = document.createElement('div');
+        existingSection.className = 'existing-projects-section';
+        existingSection.innerHTML = '<h2>Already Existing Projects</h2>';
+        existingProjects.forEach((project, index) => {
+            const projectCard = document.createElement('div');
+            projectCard.className = 'project-card';
+            projectCard.setAttribute('data-project-id', project.id);
+            projectCard.style.animation = `slideInUp 0.5s ease ${index * 0.1}s both`;
+            const projectImage = project.image ? `
+                <div class="project-image">
+                    <img src="${project.image}" alt="${project.name}">
                 </div>
-                <div class="form-group">
-                    <label for="ai-style">Style</label>
-                    <select id="ai-style">
-                        <option value="realistic">Realistic</option>
-                        <option value="anime">Anime</option>
-                        <option value="artistic">Artistic</option>
-                        <option value="3d">3D Render</option>
-                    </select>
+            ` : '';
+            const filesList = project.files.length > 0 ? `
+                <div class="files-preview">
+                    <h4>Added Files</h4>
+                    <ul>
+                        ${project.files.slice(0, 3).map(file => `
+                            <li>${file.name}</li>
+                        `).join('')}
+                        ${project.files.length > 3 ? `<li>+${project.files.length - 3} more</li>` : ''}
+                    </ul>
                 </div>
-                <div class="form-group">
-                    <label for="ai-size">Size</label>
-                    <select id="ai-size">
-                        <option value="512x512">512x512</option>
-                        <option value="768x768">768x768</option>
-                        <option value="1024x1024">1024x1024</option>
-                    </select>
+            ` : '';
+            const confirmedLabel = `<div class="confirmed-label">✅ Confirmed</div>`;
+            projectCard.innerHTML = `
+                ${projectImage}
+                <h3>${project.name}</h3>
+                <p>${project.description}</p>
+                <a href="${project.repo}" target="_blank" class="repo-link">View Repository</a>
+                ${filesList}
+                <div class="project-actions">
+                    <button class="action-btn" onclick="handleGitHubFiles(${project.id})">
+                        <span class="btn-icon">📁</span>
+                        Manage Files
+                    </button>
+                    <label class="action-btn">
+                        <span class="btn-icon">🖼️</span>
+                        Upload Image
+                        <input type="file" accept="image/*" style="display: none" 
+                               onchange="handleImageUpload(${project.id}, this.files[0])">
+                    </label>
+                    ${confirmedLabel}
                 </div>
-                <button class="generate-btn" onclick="generateAIImage(document.getElementById('ai-prompt').value)">
-                    <span class="btn-icon">🎨</span>
-                    Generate Image
+            `;
+            existingSection.appendChild(projectCard);
+        });
+        projectsContainer.appendChild(existingSection);
+    }
+    // User Projects Section (pending confirmation)
+    if (userProjects.length > 0) {
+        const userSection = document.createElement('div');
+        userSection.className = 'user-projects-section';
+        userSection.innerHTML = '<h2>New Projects (Pending Confirmation)</h2>';
+        userProjects.forEach((project, index) => {
+            const projectCard = document.createElement('div');
+            projectCard.className = 'project-card';
+            projectCard.setAttribute('data-project-id', project.id);
+            projectCard.style.animation = `slideInUp 0.5s ease ${index * 0.1}s both`;
+            const projectImage = project.image ? `
+                <div class="project-image">
+                    <img src="${project.image}" alt="${project.name}">
+                </div>
+            ` : '';
+            const filesList = project.files.length > 0 ? `
+                <div class="files-preview">
+                    <h4>Added Files</h4>
+                    <ul>
+                        ${project.files.slice(0, 3).map(file => `
+                            <li>${file.name}</li>
+                        `).join('')}
+                        ${project.files.length > 3 ? `<li>+${project.files.length - 3} more</li>` : ''}
+                    </ul>
+                </div>
+            ` : '';
+            const confirmButton = `
+                <button class="action-btn confirm-btn" onclick="confirmProjectCreation(${project.id})">
+                    <span class="btn-icon">✅</span>
+                    Confirm Creation
                 </button>
-            </div>
-        </div>
-    `;
-    projectsContainer.appendChild(aiSection);
-    
-    // Display existing projects
-    sampleProjects.forEach((project, index) => {
-        const projectCard = document.createElement('div');
-        projectCard.className = 'project-card';
-        projectCard.setAttribute('data-project-id', project.id);
-        projectCard.style.animation = `slideInUp 0.5s ease ${index * 0.1}s both`;
-        
-        const projectImage = project.image ? `
-            <div class="project-image">
-                <img src="${project.image}" alt="${project.name}">
-            </div>
-        ` : '';
-        
-        const filesList = project.files.length > 0 ? `
-            <div class="files-preview">
-                <h4>Added Files</h4>
-                <ul>
-                    ${project.files.slice(0, 3).map(file => `
-                        <li>${file.name}</li>
-                    `).join('')}
-                    ${project.files.length > 3 ? `<li>+${project.files.length - 3} more</li>` : ''}
-                </ul>
-            </div>
-        ` : '';
-        
-        projectCard.innerHTML = `
-            ${projectImage}
-            <h3>${project.name}</h3>
-            <p>${project.description}</p>
-            <a href="${project.repo}" target="_blank" class="repo-link">View Repository</a>
-            ${filesList}
-            <div class="project-actions">
-                <button class="action-btn" onclick="handleGitHubFiles(${project.id})">
-                    <span class="btn-icon">📁</span>
-                    Manage Files
-                </button>
-                <button class="action-btn" onclick="showAIImageModal(${project.id})">
-                    <span class="btn-icon">🎨</span>
-                    Generate AI Image
-                </button>
-                <label class="action-btn">
-                    <span class="btn-icon">🖼️</span>
-                    Upload Image
-                    <input type="file" accept="image/*" style="display: none" 
-                           onchange="handleImageUpload(${project.id}, this.files[0])">
-                </label>
-            </div>
-        `;
-        projectsContainer.appendChild(projectCard);
-    });
+            `;
+            projectCard.innerHTML = `
+                ${projectImage}
+                <h3>${project.name}</h3>
+                <p>${project.description}</p>
+                <a href="${project.repo}" target="_blank" class="repo-link">View Repository</a>
+                ${filesList}
+                <div class="project-actions">
+                    <button class="action-btn" onclick="handleGitHubFiles(${project.id})">
+                        <span class="btn-icon">📁</span>
+                        Manage Files
+                    </button>
+                    <label class="action-btn">
+                        <span class="btn-icon">🖼️</span>
+                        Upload Image
+                        <input type="file" accept="image/*" style="display: none" 
+                               onchange="handleImageUpload(${project.id}, this.files[0])">
+                    </label>
+                    ${confirmButton}
+                </div>
+            `;
+            userSection.appendChild(projectCard);
+        });
+        projectsContainer.appendChild(userSection);
+    }
 }
 
 // Event Listeners
@@ -702,563 +739,4 @@ style.textContent = `
         to { opacity: 0; }
     }
 `;
-document.head.appendChild(style);
-
-// AI Image Generation
-async function generateAIImage(prompt) {
-    try {
-        const response = await fetch(AI_CONFIG.STABLE_DIFFUSION_URL, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${AI_CONFIG.API_KEY}`,
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                inputs: prompt,
-                parameters: {
-                    num_inference_steps: AI_CONFIG.MAX_STEPS,
-                    guidance_scale: AI_CONFIG.GUIDANCE_SCALE
-                }
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error('Image generation failed');
-        }
-
-        const blob = await response.blob();
-        return URL.createObjectURL(blob);
-    } catch (error) {
-        console.error('AI Image Generation Error:', error);
-        throw error;
-    }
-}
-
-// Show AI Image Generation Modal
-function showAIImageModal(projectId) {
-    const modal = document.createElement('div');
-    modal.className = 'modal ai-image-modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <h2>Generate AI Image</h2>
-            <div class="ai-image-form">
-                <div class="form-group">
-                    <label for="image-prompt">Image Description</label>
-                    <textarea id="image-prompt" placeholder="Describe the image you want to generate..." required></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="image-style">Style</label>
-                    <select id="image-style">
-                        <option value="realistic">Realistic</option>
-                        <option value="anime">Anime</option>
-                        <option value="artistic">Artistic</option>
-                        <option value="3d">3D Render</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="image-size">Size</label>
-                    <select id="image-size">
-                        <option value="512x512">512x512</option>
-                        <option value="768x768">768x768</option>
-                        <option value="1024x1024">1024x1024</option>
-                    </select>
-                </div>
-                <button class="generate-btn" onclick="generateProjectImage(${projectId})">
-                    <span class="btn-icon">🎨</span>
-                    Generate Image
-                </button>
-            </div>
-            <div class="image-preview-container">
-                <div id="generated-image-preview"></div>
-                <div class="image-editing-tools">
-                    <button class="edit-btn" onclick="editGeneratedImage(${projectId})">
-                        <span class="btn-icon">✏️</span>
-                        Edit Image
-                    </button>
-                    <button class="save-btn" onclick="saveGeneratedImage(${projectId})">
-                        <span class="btn-icon">💾</span>
-                        Save Image
-                    </button>
-                </div>
-            </div>
-            <div class="modal-buttons">
-                <button class="modal-btn primary" onclick="this.closest('.modal').remove()">Close</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    modal.style.display = 'flex';
-}
-
-// Generate Project Image
-async function generateProjectImage(projectId) {
-    const project = sampleProjects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const promptInput = document.getElementById('image-prompt');
-    const styleSelect = document.getElementById('image-style');
-    const sizeSelect = document.getElementById('image-size');
-    const generateBtn = document.querySelector('.generate-btn');
-    const previewContainer = document.getElementById('generated-image-preview');
-
-    if (!promptInput.value) {
-        showWalletStatus('Please enter an image description', 'error');
-        return;
-    }
-
-    try {
-        generateBtn.disabled = true;
-        generateBtn.innerHTML = `
-            <span class="btn-icon">⚡</span>
-            Generating...
-        `;
-
-        // Construct prompt with style
-        const style = styleSelect.value;
-        const size = sizeSelect.value;
-        const fullPrompt = `${promptInput.value}, ${style} style, ${size} resolution, high quality, detailed`;
-
-        // Generate image
-        const imageUrl = await generateAIImage(fullPrompt);
-        
-        // Display preview
-        previewContainer.innerHTML = `
-            <img src="${imageUrl}" alt="Generated Image">
-            <div class="image-controls">
-                <button onclick="regenerateImage(${projectId})">
-                    <span class="btn-icon">🔄</span>
-                    Regenerate
-                </button>
-                <button onclick="editGeneratedImage(${projectId})">
-                    <span class="btn-icon">✏️</span>
-                    Edit
-                </button>
-            </div>
-        `;
-
-        // Store generated image URL
-        project.generatedImage = imageUrl;
-
-        showWalletStatus('Image generated successfully!', 'success');
-    } catch (error) {
-        console.error('Image generation error:', error);
-        showWalletStatus('Failed to generate image', 'error');
-    } finally {
-        generateBtn.disabled = false;
-        generateBtn.innerHTML = `
-            <span class="btn-icon">🎨</span>
-            Generate Image
-        `;
-    }
-}
-
-// Edit Generated Image
-function editGeneratedImage(projectId) {
-    const project = sampleProjects.find(p => p.id === projectId);
-    if (!project || !project.generatedImage) return;
-
-    const modal = document.createElement('div');
-    modal.className = 'modal image-editor-modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <h2>Edit Image</h2>
-            <div class="image-editor">
-                <div class="editor-tools">
-                    <div class="tool-group">
-                        <label>Brightness</label>
-                        <input type="range" id="brightness" min="0" max="200" value="100">
-                    </div>
-                    <div class="tool-group">
-                        <label>Contrast</label>
-                        <input type="range" id="contrast" min="0" max="200" value="100">
-                    </div>
-                    <div class="tool-group">
-                        <label>Saturation</label>
-                        <input type="range" id="saturation" min="0" max="200" value="100">
-                    </div>
-                    <div class="tool-group">
-                        <label>Blur</label>
-                        <input type="range" id="blur" min="0" max="10" value="0">
-                    </div>
-                </div>
-                <div class="editor-preview">
-                    <img id="editable-image" src="${project.generatedImage}" alt="Editable Image">
-                </div>
-            </div>
-            <div class="editor-actions">
-                <button class="reset-btn" onclick="resetImageEdit()">
-                    <span class="btn-icon">↺</span>
-                    Reset
-                </button>
-                <button class="save-btn" onclick="saveImageEdit(${projectId})">
-                    <span class="btn-icon">💾</span>
-                    Save Changes
-                </button>
-            </div>
-            <div class="modal-buttons">
-                <button class="modal-btn primary" onclick="this.closest('.modal').remove()">Close</button>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    modal.style.display = 'flex';
-
-    // Add event listeners for image editing
-    const image = document.getElementById('editable-image');
-    const brightness = document.getElementById('brightness');
-    const contrast = document.getElementById('contrast');
-    const saturation = document.getElementById('saturation');
-    const blur = document.getElementById('blur');
-
-    function updateImage() {
-        image.style.filter = `
-            brightness(${brightness.value}%)
-            contrast(${contrast.value}%)
-            saturate(${saturation.value}%)
-            blur(${blur.value}px)
-        `;
-    }
-
-    brightness.addEventListener('input', updateImage);
-    contrast.addEventListener('input', updateImage);
-    saturation.addEventListener('input', updateImage);
-    blur.addEventListener('input', updateImage);
-}
-
-// Reset Image Edit
-function resetImageEdit() {
-    const image = document.getElementById('editable-image');
-    const brightness = document.getElementById('brightness');
-    const contrast = document.getElementById('contrast');
-    const saturation = document.getElementById('saturation');
-    const blur = document.getElementById('blur');
-
-    brightness.value = 100;
-    contrast.value = 100;
-    saturation.value = 100;
-    blur.value = 0;
-
-    image.style.filter = 'none';
-}
-
-// Save Image Edit
-function saveImageEdit(projectId) {
-    const project = sampleProjects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const image = document.getElementById('editable-image');
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    
-    ctx.filter = image.style.filter;
-    ctx.drawImage(image, 0, 0);
-    
-    canvas.toBlob((blob) => {
-        const url = URL.createObjectURL(blob);
-        project.image = url;
-        displayProjects();
-        showWalletStatus('Image edited and saved successfully!', 'success');
-        document.querySelector('.image-editor-modal').remove();
-    }, 'image/jpeg', 0.8);
-}
-
-// Regenerate Image
-async function regenerateImage(projectId) {
-    const project = sampleProjects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const promptInput = document.getElementById('image-prompt');
-    const styleSelect = document.getElementById('image-style');
-    const sizeSelect = document.getElementById('image-size');
-
-    try {
-        // Add random seed to prompt for variation
-        const randomSeed = Math.floor(Math.random() * 1000000);
-        const fullPrompt = `${promptInput.value}, ${styleSelect.value} style, ${sizeSelect.value} resolution, high quality, detailed, seed:${randomSeed}`;
-
-        const imageUrl = await generateAIImage(fullPrompt);
-        
-        document.getElementById('generated-image-preview').innerHTML = `
-            <img src="${imageUrl}" alt="Generated Image">
-            <div class="image-controls">
-                <button onclick="regenerateImage(${projectId})">
-                    <span class="btn-icon">🔄</span>
-                    Regenerate
-                </button>
-                <button onclick="editGeneratedImage(${projectId})">
-                    <span class="btn-icon">✏️</span>
-                    Edit
-                </button>
-            </div>
-        `;
-
-        project.generatedImage = imageUrl;
-        showWalletStatus('Image regenerated successfully!', 'success');
-    } catch (error) {
-        console.error('Image regeneration error:', error);
-        showWalletStatus('Failed to regenerate image', 'error');
-    }
-}
-
-// Save Generated Image
-function saveGeneratedImage(projectId) {
-    const project = sampleProjects.find(p => p.id === projectId);
-    if (!project || !project.generatedImage) return;
-
-    project.image = project.generatedImage;
-    displayProjects();
-    showWalletStatus('Image saved to project!', 'success');
-    document.querySelector('.ai-image-modal').remove();
-}
-
-// Add CSS for AI image features
-const aiImageStyle = document.createElement('style');
-aiImageStyle.textContent = `
-    .ai-image-modal .modal-content {
-        max-width: 800px;
-    }
-
-    .ai-image-form {
-        margin-bottom: 2rem;
-    }
-
-    .ai-image-form textarea {
-        min-height: 100px;
-        margin-bottom: 1rem;
-    }
-
-    .image-preview-container {
-        margin-top: 2rem;
-        text-align: center;
-    }
-
-    .image-preview-container img {
-        max-width: 100%;
-        max-height: 500px;
-        border-radius: 10px;
-        margin-bottom: 1rem;
-    }
-
-    .image-controls {
-        display: flex;
-        gap: 1rem;
-        justify-content: center;
-        margin-top: 1rem;
-    }
-
-    .image-editor-modal .modal-content {
-        max-width: 1000px;
-    }
-
-    .image-editor {
-        display: grid;
-        grid-template-columns: 250px 1fr;
-        gap: 2rem;
-        margin: 2rem 0;
-    }
-
-    .editor-tools {
-        background: var(--card-bg);
-        padding: 1rem;
-        border-radius: 10px;
-    }
-
-    .tool-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .tool-group label {
-        display: block;
-        margin-bottom: 0.5rem;
-        color: var(--text-secondary);
-    }
-
-    .tool-group input[type="range"] {
-        width: 100%;
-    }
-
-    .editor-preview {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: var(--card-bg);
-        padding: 1rem;
-        border-radius: 10px;
-    }
-
-    .editor-preview img {
-        max-width: 100%;
-        max-height: 500px;
-        border-radius: 5px;
-    }
-
-    .editor-actions {
-        display: flex;
-        gap: 1rem;
-        justify-content: center;
-        margin-top: 1rem;
-    }
-
-    .generate-btn {
-        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-        color: white;
-        border: none;
-        padding: 1rem 2rem;
-        border-radius: 25px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: all 0.3s ease;
-        margin-top: 1rem;
-    }
-
-    .generate-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px var(--shadow-color);
-    }
-
-    .generate-btn:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-    }
-
-    .image-controls button {
-        background: var(--card-bg);
-        color: var(--text-color);
-        border: none;
-        padding: 0.8rem 1.5rem;
-        border-radius: 25px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: all 0.3s ease;
-    }
-
-    .image-controls button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px var(--shadow-color);
-    }
-
-    .reset-btn, .save-btn {
-        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-        color: white;
-        border: none;
-        padding: 0.8rem 1.5rem;
-        border-radius: 25px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: all 0.3s ease;
-    }
-
-    .reset-btn:hover, .save-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px var(--shadow-color);
-    }
-`;
-document.head.appendChild(aiImageStyle);
-
-// Add CSS for AI image section
-const aiImageSectionStyle = document.createElement('style');
-aiImageSectionStyle.textContent = `
-    .ai-image-section {
-        margin-bottom: 3rem;
-        padding: 2rem;
-        background: var(--card-bg);
-        border-radius: 15px;
-        box-shadow: 0 4px 15px var(--shadow-color);
-    }
-
-    .ai-image-section h2 {
-        color: var(--primary-color);
-        margin-bottom: 1.5rem;
-        text-align: center;
-    }
-
-    .ai-image-card {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 2rem;
-        align-items: start;
-    }
-
-    .ai-image-preview {
-        width: 100%;
-        height: 300px;
-        background: var(--bg-color);
-        border-radius: 10px;
-        overflow: hidden;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .ai-image-preview img {
-        max-width: 100%;
-        max-height: 100%;
-        object-fit: contain;
-    }
-
-    .ai-image-controls {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .ai-image-controls .form-group {
-        margin-bottom: 1rem;
-    }
-
-    .ai-image-controls textarea {
-        width: 100%;
-        min-height: 100px;
-        padding: 0.8rem;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        background: var(--bg-color);
-        color: var(--text-color);
-        resize: vertical;
-    }
-
-    .ai-image-controls select {
-        width: 100%;
-        padding: 0.8rem;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        background: var(--bg-color);
-        color: var(--text-color);
-    }
-
-    .ai-image-controls .generate-btn {
-        margin-top: 1rem;
-        background: linear-gradient(45deg, var(--primary-color), var(--secondary-color));
-        color: white;
-        border: none;
-        padding: 1rem 2rem;
-        border-radius: 25px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.5rem;
-        transition: all 0.3s ease;
-    }
-
-    .ai-image-controls .generate-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px var(--shadow-color);
-    }
-
-    @media (max-width: 768px) {
-        .ai-image-card {
-            grid-template-columns: 1fr;
-        }
-    }
-`;
-document.head.appendChild(aiImageSectionStyle); 
+document.head.appendChild(style); 
