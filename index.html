@@ -24,6 +24,7 @@
             <div class="logo animate__animated animate__fadeIn">Aptos Collaborative Coding</div>
             <div class="nav-links">
                 <a href="#home" class="nav-link">Home</a>
+                <a href="#about" class="nav-link">About</a>
                 <a href="#projects" class="nav-link">Projects</a>
                 <a href="#create" class="nav-link">Create Project</a>
                 <div class="wallet-container">
@@ -36,18 +37,6 @@
             </div>
         </nav>
     </header>
-
-    <!-- Wallet Check Modal -->
-    <div id="wallet-modal" class="modal">
-        <div class="modal-content">
-            <h2>Petra Wallet Required</h2>
-            <p>To use this application, you need to install the Petra wallet extension.</p>
-            <div class="modal-buttons">
-                <a href="https://petra.app/" target="_blank" class="modal-btn primary">Install Petra Wallet</a>
-                <button class="modal-btn secondary" onclick="closeModal()">Close</button>
-            </div>
-        </div>
-    </div>
 
     <main>
         <section id="home" class="hero animate__animated animate__fadeIn">
@@ -83,6 +72,10 @@
                     <label for="project-repo">GitHub Repository URL</label>
                     <input type="url" id="project-repo" required>
                 </div>
+                <div class="form-group">
+                    <label for="project-image">Project Image (optional)</label>
+                    <input type="file" id="project-image" accept="image/*">
+                </div>
                 <button type="submit" class="submit-btn">
                     <span class="btn-text">Create Project</span>
                     <span class="btn-icon">🚀</span>
@@ -90,6 +83,25 @@
             </form>
         </section>
     </main>
+
+    <!-- About Section -->
+    <section id="about" class="about-section animate__animated animate__fadeIn">
+        <div class="about-content">
+            <h2>About This Platform</h2>
+            <p>
+                Welcome to <strong>Aptos Collaborative Coding</strong>! This platform is designed to bring developers together to build, share, and collaborate on blockchain projects. Whether you're a seasoned developer or just starting out, you can join forces with others, contribute to exciting projects, and help each other grow.
+            </p>
+            <p>
+                Here, you can create new projects, showcase your ideas, and invite others to join your journey. Our mission is to foster a supportive and innovative community where everyone can learn, teach, and make an impact. Collaboration is at the heart of what we do—so dive in, connect with fellow builders, and let's shape the future of blockchain technology together!
+            </p>
+            <ul class="about-highlights">
+                <li>🤝 Collaborate on open-source projects</li>
+                <li>💡 Share knowledge and help each other</li>
+                <li>🚀 Launch your ideas and get feedback</li>
+                <li>🌍 Connect with a global community</li>
+            </ul>
+        </div>
+    </section>
 
     <footer>
         <p>&copy; 2024 Aptos Collaborative Coding. All rights reserved.</p>
